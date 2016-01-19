@@ -23,11 +23,13 @@ THE SOFTWARE.
 ;(function() {
 
   var root = this;
-  var previousReactPyon = root.ReactPyon;
+  //var previousReactPyon = root.ReactPyon;
 
   var hasRequire = (typeof require !== "undefined");
   var RegularPyon = root.Pyon || hasRequire && require("pyon");
   if (!RegularPyon) throw new Error("React Pyon requires regular Pyon. If you are using script tags Pyon must come first.");
+  var React = root.React || hasRequire && require("react");
+  if (!React) throw new Error("React Pyon requires React. If you are using script tags React must come first.");
 /*
   var InnerComponent = React.createClass({
     render: function() { }
@@ -47,32 +49,39 @@ THE SOFTWARE.
       InnerComponent = animationDict;
       animationDict = {};
     }
-    function OuterComponent() {
-      this.instance = null;
-      this.mounted = false;
-      this.renderingPresentation = false;
-      var component = this;
-      var layer = this.layer = {};
-      var delegate = this.delegate = {
-        animationForKey: this.animationForKey.bind(this),
-        debugProps: component.props,
-        render: function() {
-          component.renderingPresentation = true; // TODO: this won't work because of React batching/ remove.
-          shoeContext.beginTransaction({owner: component}); // FIXME: also has problem of React batching, but can also be overwritten by manually created transactions
-          if (this.mounted) this.setState(layer); // FIXME: conditional should not be necessary
-          shoeContext.commitTransaction();
-        }.bind(this),
+    var OuterComponentClass = React.createClass({
+    
+      displayName : "OuterComponent",
+
+      getInitialState : function() {
+          return {}
+      },
+
+      initialize: function() {
+        this.instance = null;
+        this.mounted = false;
+        this.renderingPresentation = false;
+        var component = this;
+        var layer = this.layer = {};
+        var delegate = this.delegate = {
+          animationForKey: this.animationForKey.bind(this),
+          debugProps: component.props,
+          render: function() {
+            component.renderingPresentation = true; // TODO: this won't work because of React batching/ remove.
+            shoeContext.beginTransaction({owner: component}); // FIXME: also has problem of React batching, but can also be overwritten by manually created transactions
+            if (this.mounted) this.setState(layer); // FIXME: conditional should not be necessary
+            shoeContext.commitTransaction();
+          }.bind(this),
+        }
+        RegularPyon.Mixin(delegate,layer,delegate);
+        this.getPresentationLayer = function() {
+          return delegate.presentation;
+          //return layer.presentation;
+          //return shoeContext.presentationLayer(layer);
+        }
+        this.state = { wantsLayer: null, layer:layer };
       }
-      RegularPyon.Mixin(delegate,layer,delegate);
-      this.getPresentationLayer = function() {
-        return delegate.presentation;
-        //return layer.presentation;
-        //return shoeContext.presentationLayer(layer);
-      }
-      this.state = { wantsLayer: null, layer:layer };
-    }
-    OuterComponent.prototype = {
-      constructor: OuterComponent,
+    
       shouldComponentUpdate: function(nextProps,nextState) {
         var result = true;
         var transaction = shoeContext.currentTransaction();
@@ -141,6 +150,7 @@ THE SOFTWARE.
         this.processProps(props);
       },
       componentWillMount: function() {
+        this.initialize();
         this.processProps(this.props);
         this.registerProps(this.props); // this is awkward registering after processing but otherwise animations trigger before all props have been applied, get nulls for some values
         Object.keys(this.props).forEach( function(key) { // have to manually trigger mount animation
@@ -189,6 +199,13 @@ THE SOFTWARE.
           }
         }
         var velvetProps = {renderingPresentation:this.renderingPresentation};
+        
+        output.modelProps = propValues;
+        output.velvetProps = velvetProps;
+        output.velvetDelegate = owner.delegate;
+        output.addAnimation = owner.delegate.addAnimation.bind(owner.delegate);
+        return OriginalComponent(output);
+        /*
         return <OriginalComponent
           {...output}
           modelProps={propValues}
@@ -197,7 +214,9 @@ THE SOFTWARE.
           addAnimation={owner.delegate.addAnimation.bind(owner.delegate)} // Can't wait for instance to set manually. Must use props.
           ref={ ref }
         />;
+        */
       }
     }
+    return React.createFactory(OuterContainerClass); // extra step required because I'm not using JSX
   }
 }).call(this);
