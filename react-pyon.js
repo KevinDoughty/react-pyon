@@ -204,7 +204,7 @@ THE SOFTWARE.
         output.velvetProps = velvetProps;
         output.velvetDelegate = owner.delegate;
         output.addAnimation = owner.delegate.addAnimation.bind(owner.delegate);
-        return OriginalComponent(output);
+        return InnerComponent(output);
         /*
         return <OriginalComponent
           {...output}
@@ -217,6 +217,7 @@ THE SOFTWARE.
         */
       }
     }
-    return React.createFactory(OuterContainerClass); // extra step required because I'm not using JSX
+    var OuterComponent = React.createFactory(OuterComponentClass); // extra step required because I'm not using JSX
+    return OuterComponent;
   }
 }).call(this);
