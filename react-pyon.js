@@ -80,7 +80,7 @@ THE SOFTWARE.
           //return shoeContext.presentationLayer(layer);
         }
         this.state = { wantsLayer: null, layer:layer };
-      }
+      },
     
       shouldComponentUpdate: function(nextProps,nextState) {
         var result = true;
