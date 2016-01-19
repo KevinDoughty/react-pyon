@@ -1,6 +1,6 @@
 {
   "name": "react-pyon",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Animation layers for React",
   "main": "react-pyon.js",
   "scripts": {

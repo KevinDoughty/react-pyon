@@ -216,7 +216,7 @@ THE SOFTWARE.
         />;
         */
       }
-    }
+    });
     var OuterComponent = React.createFactory(OuterComponentClass); // extra step required because I'm not using JSX
     return OuterComponent;
   }
