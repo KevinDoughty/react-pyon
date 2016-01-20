@@ -23,35 +23,29 @@ THE SOFTWARE.
 ;(function() {
 
   var root = this;
-  //var previousReactPyon = root.ReactPyon;
-
+  var previousPyon = root.ReactPyon;
   var hasRequire = (typeof require !== "undefined");
-  var RegularPyon = root.Pyon || hasRequire && require("pyon");
-  if (!RegularPyon) throw new Error("React Pyon requires regular Pyon. If you are using script tags Pyon must come first.");
-  var React = root.React || hasRequire && require("react");
-  if (!React) throw new Error("React Pyon requires React. If you are using script tags React must come first.");
-/*
-  var InnerComponent = React.createClass({
-    render: function() { }
-  });
   
-  var OuterComponent = hoc(DumbComponent, React.createClass({
-    render: function() {
-      return <DumbComponent />;
-    }
-  }))
-*/
+  var React = root.React || hasRequire && require("react");
+  if (typeof React === "undefined") throw new Error("React Pyon requires React. If you are using script tags React must come first.");
 
-  //reactimate: (animationDict,OriginalComponent) => class extends Component {
-  RegularPyon.reactify = function(animationDict, OriginalComponent) {
+  var Pyon = root.Pyon || hasRequire && require("pyon");
+  if (typeof Pyon === "undefined") throw new Error("React Pyon requires regular Pyon. If you are using script tags Pyon must come first.");
+
+  function isFunction(w) {
+    return w && {}.toString.call(w) === "[object Function]";
+  }
+
+  var ReactPyon = root.ReactPyon = {};
+  ReactPyon.reactify = function(animationDict, OriginalComponent) {
     var InnerComponent = OriginalComponent;
     if (isFunction(animationDict) && typeof OriginalComponent === "undefined") {
       InnerComponent = animationDict;
       animationDict = {};
     }
     var OuterComponentClass = React.createClass({
-    
-      displayName : "OuterComponent",
+
+      displayName : "PyonComponent",
 
       getInitialState : function() {
           return {}
@@ -64,27 +58,25 @@ THE SOFTWARE.
         var component = this;
         var layer = this.layer = {};
         var delegate = this.delegate = {
-          animationForKey: this.animationForKey.bind(this),
+          animationForKey: this.animationForKey, // Do not need to bind (ES5 only?)
           debugProps: component.props,
           render: function() {
             component.renderingPresentation = true; // TODO: this won't work because of React batching/ remove.
-            shoeContext.beginTransaction({owner: component}); // FIXME: also has problem of React batching, but can also be overwritten by manually created transactions
+            Pyon.beginTransaction({owner: component}); // FIXME: also has problem of React batching, but can also be overwritten by manually created transactions
             if (this.mounted) this.setState(layer); // FIXME: conditional should not be necessary
-            shoeContext.commitTransaction();
+            Pyon.commitTransaction();
           }.bind(this),
         }
-        RegularPyon.Mixin(delegate,layer,delegate);
+        Pyon.mixin(delegate,layer,delegate);
         this.getPresentationLayer = function() {
           return delegate.presentation;
-          //return layer.presentation;
-          //return shoeContext.presentationLayer(layer);
         }
         this.state = { wantsLayer: null, layer:layer };
       },
-    
+
       shouldComponentUpdate: function(nextProps,nextState) {
         var result = true;
-        var transaction = shoeContext.currentTransaction();
+        var transaction = Pyon.currentTransaction();
         var settings = null;
         if (transaction) settings = transaction.settings;
         if (settings && settings.owner && settings.owner !== this) result = false;
@@ -162,7 +154,7 @@ THE SOFTWARE.
             value = prop.value;
             animation = prop.mount;
             if (animation) {
-              var copy = animationFromDescription(animation); // I don't think it's a copy! Should be because you mutate it
+              var copy = Object.keys(animation).reduce(function(a, b) { a[b] = animation[b]; return a;}, {});
               if (copy) {
                 copy.property = key;
                 this.delegate.addAnimation(copy);
@@ -179,16 +171,13 @@ THE SOFTWARE.
       },
       render: function() {
         var presentationLayer = this.delegate.presentation;
-        //const propValues = this.propValues(this.props);
-        //var output = {...propValues, ...presentationLayer};
-       
-        //var propValues = this.propValues(this.props);
-        //var output = Object.keys(propValues).reduce(function(n, k) { n[k] = propValues[k]; return n;}, {});
-        //Object.keys(presentationLayer
+        var propValues = this.propValues(this.props);
         var modelLayer = this.layer;
-        var propValues = Object.keys(modelLayer).reduce(function(a, b) { a[b] = modelLayer[b]; return a;}, {});
         var presentationLayer = this.delegate.presentation;
-        var output = Object.keys(presentationLayer).reduce(function(a, b) { a[b] = presentationLayer[b]; return a;}, {});
+        var output = this.propValues(this.props);
+        Object.keys(presentationLayer).forEach( function(key) {
+          output[key] = presentationLayer[key];
+        });
         
         var owner = this;
         var ref;
@@ -199,25 +188,31 @@ THE SOFTWARE.
           }
         }
         var velvetProps = {renderingPresentation:this.renderingPresentation};
-        
+
         output.modelProps = propValues;
         output.velvetProps = velvetProps;
         output.velvetDelegate = owner.delegate;
         output.addAnimation = owner.delegate.addAnimation.bind(owner.delegate);
-        return InnerComponent(output);
-        /*
-        return <OriginalComponent
-          {...output}
-          modelProps={propValues}
-          velvetProps={velvetProps}
-          velvetDelegate={owner.delegate}
-          addAnimation={owner.delegate.addAnimation.bind(owner.delegate)} // Can't wait for instance to set manually. Must use props.
-          ref={ ref }
-        />;
-        */
+        output.ref = ref;
+        
+        return React.createElement(InnerComponent,output,null,ref);
       }
     });
-    var OuterComponent = React.createFactory(OuterComponentClass); // extra step required because I'm not using JSX
+    //return OuterComponentClass;
+    var OuterComponent = React.createFactory(OuterComponentClass);
     return OuterComponent;
   }
+  
+  ReactPyon.noConflict = function() {
+    root.ReactPyon = previousReactPyon;
+    return ReactPyon;
+  }
+  if (typeof exports !== "undefined") { // http://www.richardrodger.com/2013/09/27/how-to-make-simple-node-js-modules-work-in-the-browser/#.VpuIsTZh2Rs
+    if (typeof module !== "undefined" && module.exports) exports = module.exports = ReactPyon;
+    exports.ReactPyon = ReactPyon;
+  } else root.ReactPyon = ReactPyon;
+  
+  //if (typeof module !== "undefined" && typeof module.exports !== "undefined") module.exports = ReactPyon; // http://www.matteoagosti.com/blog/2013/02/24/writing-javascript-modules-for-both-browser-and-node/
+  //else window.ReactPyon = ReactPyon;
+
 }).call(this);
